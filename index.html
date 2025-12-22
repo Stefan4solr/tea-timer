@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+
   <!-- iOS fullscreen -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,17 +15,12 @@
   <link rel="apple-touch-icon" sizes="167x167" href="gaiwan-167.png">
   <link rel="apple-touch-icon" sizes="152x152" href="gaiwan-152.png">
 
-  <!-- Prevent text scaling -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
   <link rel="manifest" href="manifest.json">
 
   <title>Tea Brewer</title>
 
   <style>
-    html,
-    body {
+    html, body {
       margin: 0;
       padding: 0;
       width: 100%;
@@ -32,7 +28,7 @@
       background: black;
       color: white;
       font-family: "HelveticaNeue-Light", "Helvetica Neue Light",
-        "Helvetica Neue", Helvetica, Arial, sans-serif;
+                   "Helvetica Neue", Helvetica, Arial, sans-serif;
       touch-action: manipulation;
     }
 
@@ -83,14 +79,47 @@
 
     #temperature {
       z-index: 1;
-      letter-spacing: 2px;
+      letter-spacing: 1px;
     }
 
+    /* ===== TIMER WITH CUSTOM COLON ===== */
+
     #timer {
+      display: flex;
+      align-items: center;
       font-family: "HelveticaNeue-UltraLight", "Helvetica Neue", Helvetica, Arial, sans-serif;
       font-weight: 100;
-      letter-spacing: 3px;
+      letter-spacing: 2px;
       z-index: 1;
+    }
+
+    .digits {
+      display: inline-block;
+      min-width: 2ch;
+      text-align: center;
+    }
+
+    .colon {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.18em;
+      margin: 0 0.18em;
+    }
+
+    .colon span {
+      width: 0.06em;
+      height: 0.06em;
+      background: white;
+      border-radius: 50%;
+      opacity: 0.9;
+    }
+
+    /* SVG quality */
+    #progressRing {
+      position: absolute;
+      shape-rendering: geometricPrecision;
+      transform: translateZ(0);
     }
   </style>
 </head>
@@ -98,7 +127,8 @@
 <body>
 
   <!-- iOS wake lock -->
-  <video id="wakelock" muted playsinline autoplay loop style="position:absolute;width:1px;height:1px;opacity:0;">
+  <video id="wakelock" muted playsinline autoplay loop
+    style="position:absolute;width:1px;height:1px;opacity:0;">
     <source
       src="data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDFtcDQyaXNvbTQyAAACAGlzb21tcDQyAAABFG1vb3YAAABsbXZoZAAAAAB8JFoAfCRaAAABAAABAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAACc21kaWEAAAAgbWRoZAAAAAB8JFoAfCRaAAABAAABAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAABHN0YmwAAABGc3RzZAAAAAEAAAABAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
       type="video/mp4" />
@@ -110,9 +140,14 @@
   </div>
 
   <div id="center">
-    <svg id="progressRing" style="position:absolute;"></svg>
+    <svg id="progressRing"></svg>
     <div id="temperature">— °C</div>
-    <div id="timer">00:00</div>
+
+    <div id="timer">
+      <span class="digits" id="mm">00</span>
+      <span class="colon"><span></span><span></span></span>
+      <span class="digits" id="ss">00</span>
+    </div>
   </div>
 
   <script>
@@ -128,7 +163,7 @@
       },
       "Pu-err Tea": {
         color: "#b9a963",
-        temperatures: [99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99],
+        temperatures: Array(12).fill(99),
         times: [
           "00:25", "00:30", "00:35", "00:40", "00:45",
           "00:50", "00:55", "01:00", "01:05", "01:10",
@@ -142,17 +177,15 @@
       }
     };
 
-    // size relations for the progress indicator ring and fonts for timer and temperature
     const RING_SCALE = 0.75;
     const TIMER_FONT_SCALE = 0.20;
-    const TEMPERATURE_FONT_SCALE = TIMER_FONT_SCALE * 0.5;
+    const TEMP_FONT_SCALE = TIMER_FONT_SCALE * 0.5;
 
     /* ================= STATE ================= */
+
     let currentTea, currentSteep, totalSteeps;
     let totalSeconds, remainingSeconds;
-    let timerInterval = null;
-    let animationFrame = null;
-    let startTimestamp = null;
+    let timerInterval, animationFrame, startTimestamp;
     let state = "ready";
 
     /* ================= ELEMENTS ================= */
@@ -160,18 +193,25 @@
     const teaSelect = document.getElementById("teaSelect");
     const steepSelect = document.getElementById("steepSelect");
     const temperatureEl = document.getElementById("temperature");
-    const timerEl = document.getElementById("timer");
+    const mmEl = document.getElementById("mm");
+    const ssEl = document.getElementById("ss");
     const progressRing = document.getElementById("progressRing");
+
+    /* ================= TIMER RENDER ================= */
+
+    function renderTimer(sec) {
+      mmEl.textContent = String(Math.floor(sec / 60)).padStart(2, "0");
+      ssEl.textContent = String(sec % 60).padStart(2, "0");
+    }
 
     /* ================= RING ================= */
 
-    let ringBase, ringProgress;
-    let RADIUS, CIRC;
+    let ringBase, ringProgress, RADIUS, CIRC;
 
     function buildRing() {
       const size = Math.min(innerWidth, innerHeight) * RING_SCALE;
-      const stroke = Math.max(2, size * 0.015);
-      RADIUS = (size - stroke) / 2;
+      const stroke = Math.round(size * 0.015);
+      RADIUS = Math.floor((size - stroke) / 2) + 0.5;
       CIRC = 2 * Math.PI * RADIUS;
 
       progressRing.setAttribute("width", size);
@@ -179,11 +219,13 @@
       progressRing.setAttribute("viewBox", `0 0 ${size} ${size}`);
 
       progressRing.innerHTML = `
-        <circle cx="${size / 2}" cy="${size / 2}" r="${RADIUS}"
-          stroke-width="${stroke}" fill="none" id="ringBase"/>
-        <circle cx="${size / 2}" cy="${size / 2}" r="${RADIUS}"
-          stroke="#555" stroke-width="${stroke}" fill="none"
-          transform="rotate(90 ${size / 2} ${size / 2}) scale(-1 1) translate(${-size} 0)"
+        <circle cx="${size/2}" cy="${size/2}" r="${RADIUS}"
+          stroke-width="${stroke}" stroke-linecap="round"
+          fill="none" id="ringBase"/>
+        <circle cx="${size/2}" cy="${size/2}" r="${RADIUS}"
+          stroke="#555" stroke-width="${stroke}" stroke-linecap="round"
+          fill="none"
+          transform="rotate(90 ${size/2} ${size/2}) scale(-1 1) translate(${-size} 0)"
           id="ringProgress"/>
       `;
 
@@ -193,44 +235,27 @@
       ringProgress.style.strokeDasharray = CIRC;
       setProgress(0);
 
-      timerEl.style.fontSize = `${size * TIMER_FONT_SCALE}px`;
-      temperatureEl.style.fontSize = `${size * TEMPERATURE_FONT_SCALE}px`;
+      document.getElementById("timer").style.fontSize =
+        `${size * TIMER_FONT_SCALE}px`;
+      temperatureEl.style.fontSize =
+        `${size * TEMP_FONT_SCALE}px`;
     }
 
-    function setProgress(fraction) {
-      ringProgress.style.strokeDashoffset = CIRC * (1 - fraction);
+    function setProgress(f) {
+      ringProgress.style.strokeDashoffset = CIRC * (1 - f);
     }
 
-    /* ================= HELPERS ================= */
+    /* ================= LOGIC ================= */
 
-    const parseTime = t => {
+    function parseTime(t) {
       const [m, s] = t.split(":").map(Number);
       return m * 60 + s;
-    };
-
-    const formatTime = s =>
-      `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    }
 
     function stopAll() {
       clearInterval(timerInterval);
       cancelAnimationFrame(animationFrame);
-      timerInterval = animationFrame = null;
     }
-
-    /* ================= UI ================= */
-
-    function updateSteepDropdown() {
-      steepSelect.innerHTML = "";
-      TEAS[currentTea].times.forEach((time, i) => {
-        const o = document.createElement("option");
-        o.value = i;
-        o.textContent = `${i + 1} of ${totalSteeps} (${time})`;
-        steepSelect.appendChild(o);
-      });
-      steepSelect.value = currentSteep;
-    }
-
-    /* ================= LOGIC ================= */
 
     function prepareSteep(i) {
       stopAll();
@@ -239,11 +264,10 @@
 
       totalSeconds = remainingSeconds = parseTime(tea.times[i]);
       temperatureEl.textContent = tea.temperatures[i] + " °C";
-      timerEl.textContent = formatTime(remainingSeconds);
+      renderTimer(remainingSeconds);
 
       ringBase.setAttribute("stroke", tea.color);
       setProgress(0);
-      progressRing.style.display = "block";
 
       updateSteepDropdown();
       state = "ready";
@@ -263,22 +287,27 @@
 
       timerInterval = setInterval(() => {
         remainingSeconds--;
-        if (remainingSeconds <= 0) {
-          remainingSeconds = 0;
-          timerEl.textContent = "00:00";
-          finishSteep();
-        } else {
-          timerEl.textContent = formatTime(remainingSeconds);
-        }
+        renderTimer(Math.max(remainingSeconds, 0));
+        if (remainingSeconds <= 0) finishSteep();
       }, 1000);
     }
 
     function finishSteep() {
       stopAll();
       setProgress(1);
-      if (currentSteep < totalSteeps - 1) {
+      if (currentSteep < totalSteeps - 1)
         setTimeout(() => prepareSteep(currentSteep + 1), 400);
-      }
+    }
+
+    function updateSteepDropdown() {
+      steepSelect.innerHTML = "";
+      TEAS[currentTea].times.forEach((t, i) => {
+        const o = document.createElement("option");
+        o.value = i;
+        o.textContent = `${i + 1} of ${totalSteeps} (${t})`;
+        steepSelect.appendChild(o);
+      });
+      steepSelect.value = currentSteep;
     }
 
     /* ================= EVENTS ================= */
@@ -312,5 +341,4 @@
   </script>
 
 </body>
-
 </html>
