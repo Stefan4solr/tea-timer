@@ -4,7 +4,7 @@ A minimalistic tea brewing app for gong-fu style tea brewing sessions.
 
 Created with the help of ChatGPT (since I'm not a Javascript person ;)).
 
-Save e.g. to the iOS start screen to hava a full-window app.
+Save e.g. to the iOS start screen to have a full-screen app.
 
 ## Features
 - Minimalistic UI, start the steeping with a click or tap.
