@@ -354,18 +354,21 @@
 
       timerInterval = setInterval(() => {
         remainingSeconds--;
+
         if (remainingSeconds <= 0) {
           remainingSeconds = 0;
           stopAll();
-          setProgress(1);
+          setProgress(1); // full grey
           phase = "finished";
 
-          // Auto-advance to next steeping after a short pause
           setTimeout(() => {
             if (currentSteep < totalSteeps - 1) {
+              // Reset ring BEFORE switching
+              setProgress(0);
+              progressRing.style.display = "none";
               nextSteep();
             }
-          }, 400); // tweak if desired
+          }, 400);
         }
 
         timerEl.textContent = formatTime(remainingSeconds);
