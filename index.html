@@ -256,12 +256,6 @@ function formatTime(sec) {
   const s = sec % 60;
   return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
 }
-/*
-function formatTime(sec) {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${String(m).padStart(2,"0")}<span class="colon">:</span>${String(s).padStart(2,"0")}`;
-}*/
 
 function stopAll() {
   if (timerInterval) clearInterval(timerInterval);
@@ -292,12 +286,6 @@ function updateDisplay() {
     TEAS[currentTea].temperatures[currentSteep] + " °C";
   timerEl.textContent = formatTime(remainingSeconds);
 }
-/*
-function updateDisplay() {
-  temperatureEl.textContent =
-    TEAS[currentTea].temperatures[currentSteep] + " °C";
-  timerEl.innerHtml = formatTime(remainingSeconds); // ← Use innerHTML now
-}*/
 
 /* ================= LOGIC ================= */
 
@@ -364,8 +352,7 @@ function startTimer() {
     if (remainingSeconds <= 0) {
       remainingSeconds = 0;
       stopAll();
-      setProgress(1);
-      phase = "finished";
+      nextSteep();
     }
     timerEl.textContent = formatTime(remainingSeconds);
   }, 1000);
