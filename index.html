@@ -220,10 +220,10 @@
 
       progressRing.innerHTML = `
         <circle cx="${size/2}" cy="${size/2}" r="${RADIUS}"
-          stroke-width="${stroke}" stroke-linecap="round"
+          stroke-width="${stroke}"
           fill="none" id="ringBase"/>
         <circle cx="${size/2}" cy="${size/2}" r="${RADIUS}"
-          stroke="#555" stroke-width="${stroke}" stroke-linecap="round"
+          stroke="#555" stroke-width="${stroke}"
           fill="none"
           transform="rotate(90 ${size/2} ${size/2}) scale(-1 1) translate(${-size} 0)"
           id="ringProgress"/>
