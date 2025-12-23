@@ -4,7 +4,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-
   <!-- iOS fullscreen -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,12 +14,17 @@
   <link rel="apple-touch-icon" sizes="167x167" href="gaiwan-167.png">
   <link rel="apple-touch-icon" sizes="152x152" href="gaiwan-152.png">
 
+  <!-- Prevent text scaling -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
   <link rel="manifest" href="manifest.json">
 
   <title>Tea Brewer</title>
 
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       width: 100%;
@@ -28,7 +32,7 @@
       background: black;
       color: white;
       font-family: "HelveticaNeue-Light", "Helvetica Neue Light",
-                   "Helvetica Neue", Helvetica, Arial, sans-serif;
+        "Helvetica Neue", Helvetica, Arial, sans-serif;
       touch-action: manipulation;
     }
 
@@ -82,8 +86,6 @@
       letter-spacing: 1px;
     }
 
-    /* ===== TIMER WITH CUSTOM COLON ===== */
-
     #timer {
       display: flex;
       align-items: center;
@@ -115,24 +117,43 @@
       opacity: 0.9;
     }
 
-    /* SVG quality */
+    #temperature {
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+    }
+
     #progressRing {
       position: absolute;
-      shape-rendering: geometricPrecision;
-      transform: translateZ(0);
+      overflow: visible;
+    }
+
+
+    /* Glow animation */
+    #ringGlow {
+      opacity: 0;
+    }
+
+    .pulse {
+      animation: glowPulse var(--pulse-duration) ease-out forwards;
+    }
+
+    @keyframes glowPulse {
+      0% {
+        opacity: 0;
+      }
+
+      8% {
+        opacity: var(--pulse-opacity);
+      }
+
+      100% {
+        opacity: 0;
+      }
     }
   </style>
 </head>
 
 <body>
-
-  <!-- iOS wake lock -->
-  <video id="wakelock" muted playsinline autoplay loop
-    style="position:absolute;width:1px;height:1px;opacity:0;">
-    <source
-      src="data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAG1wNDFtcDQyaXNvbTQyAAACAGlzb21tcDQyAAABFG1vb3YAAABsbXZoZAAAAAB8JFoAfCRaAAABAAABAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAACc21kaWEAAAAgbWRoZAAAAAB8JFoAfCRaAAABAAABAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAABHN0YmwAAABGc3RzZAAAAAEAAAABAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-      type="video/mp4" />
-  </video>
 
   <div id="top-bar">
     <select id="teaSelect"></select>
@@ -151,9 +172,21 @@
   </div>
 
   <script>
+    /* ================= CONFIG ================= */
+
+    const RING_SCALE = 0.75;
+    const TIMER_FONT_SCALE = 0.20;
+    const TEMP_FONT_SCALE = TIMER_FONT_SCALE * 0.5;
+
+    /* Glow */
+    const START_PULSE_DURATION = 2500;
+    const START_PULSE_OPACITY = 0.6;
+    const GLOW_BLUR = 6;
+    const GLOW_PADDING_MULT = 3;
+
     /* ================= Tea definitions - you can add/remove tea types here =================
-      - color is the foreground color of the progress indicator
-      - lists of steeping temperatures and times need to have the same length
+        - color is the foreground color of the progress indicator
+        - lists of steeping temperatures and times need to have the same length
     */
     const TEAS = {
       "Sencha": {
@@ -177,149 +210,182 @@
       }
     };
 
-    const RING_SCALE = 0.75;
-    const TIMER_FONT_SCALE = 0.20;
-    const TEMP_FONT_SCALE = TIMER_FONT_SCALE * 0.5;
-
     /* ================= STATE ================= */
 
     let currentTea, currentSteep, totalSteeps;
-    let totalSeconds, remainingSeconds;
-    let timerInterval, animationFrame, startTimestamp;
+    let totalSeconds = 0;
+    let startTime = null;
+    let animFrame = null;
     let state = "ready";
 
     /* ================= ELEMENTS ================= */
 
     const teaSelect = document.getElementById("teaSelect");
     const steepSelect = document.getElementById("steepSelect");
-    const temperatureEl = document.getElementById("temperature");
     const mmEl = document.getElementById("mm");
     const ssEl = document.getElementById("ss");
+    const temperatureEl = document.getElementById("temperature");
     const progressRing = document.getElementById("progressRing");
-
-    /* ================= TIMER RENDER ================= */
-
-    function renderTimer(sec) {
-      mmEl.textContent = String(Math.floor(sec / 60)).padStart(2, "0");
-      ssEl.textContent = String(sec % 60).padStart(2, "0");
-    }
 
     /* ================= RING ================= */
 
-    let ringBase, ringProgress, RADIUS, CIRC;
+    let ringBase, ringProgress, ringGlow;
+    let RADIUS, CIRC, STROKE;
 
     function buildRing() {
-      const size = Math.min(innerWidth, innerHeight) * RING_SCALE;
-      const stroke = Math.round(size * 0.015);
-      RADIUS = Math.floor((size - stroke) / 2) + 0.5;
+      const base = Math.min(innerWidth, innerHeight) * RING_SCALE;
+      STROKE = base * 0.015;
+      RADIUS = (base - STROKE) / 2;
       CIRC = 2 * Math.PI * RADIUS;
+
+      const pad = STROKE * GLOW_PADDING_MULT;
+      const size = base + pad * 2;
+      const c = size / 2;
 
       progressRing.setAttribute("width", size);
       progressRing.setAttribute("height", size);
       progressRing.setAttribute("viewBox", `0 0 ${size} ${size}`);
 
       progressRing.innerHTML = `
-        <circle cx="${size/2}" cy="${size/2}" r="${RADIUS}"
-          stroke-width="${stroke}"
-          fill="none" id="ringBase"/>
-        <circle cx="${size/2}" cy="${size/2}" r="${RADIUS}"
-          stroke="#555" stroke-width="${stroke}"
-          fill="none"
-          transform="rotate(90 ${size/2} ${size/2}) scale(-1 1) translate(${-size} 0)"
-          id="ringProgress"/>
-      `;
+<defs>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="${GLOW_BLUR}" />
+  </filter>
+</defs>
+
+<circle cx="${c}" cy="${c}" r="${RADIUS}"
+  stroke-width="${STROKE}" fill="none" id="ringBase"/>
+
+<circle cx="${c}" cy="${c}" r="${RADIUS}"
+  stroke-width="${STROKE * 2.6}" fill="none"
+  id="ringGlow" filter="url(#glow)"/>
+
+<circle cx="${c}" cy="${c}" r="${RADIUS}"
+  stroke="#555" stroke-width="${STROKE}" fill="none"
+  stroke-dasharray="${CIRC}"
+  transform="rotate(90 ${c} ${c}) scale(-1 1) translate(${-size} 0)"
+  id="ringProgress"/>
+`;
 
       ringBase = document.getElementById("ringBase");
+      ringGlow = document.getElementById("ringGlow");
       ringProgress = document.getElementById("ringProgress");
 
-      ringProgress.style.strokeDasharray = CIRC;
       setProgress(0);
 
       document.getElementById("timer").style.fontSize =
-        `${size * TIMER_FONT_SCALE}px`;
+        `${base * TIMER_FONT_SCALE}px`;
       temperatureEl.style.fontSize =
-        `${size * TEMP_FONT_SCALE}px`;
+        `${base * TEMP_FONT_SCALE}px`;
     }
 
     function setProgress(f) {
       ringProgress.style.strokeDashoffset = CIRC * (1 - f);
     }
 
+    /* ================= TIMER ================= */
+
+    function renderTime(sec) {
+      sec = Math.max(0, Math.floor(sec));
+      mmEl.textContent = String(Math.floor(sec / 60)).padStart(2, "0");
+      ssEl.textContent = String(sec % 60).padStart(2, "0");
+    }
+
+    function startPulse(color) {
+      ringGlow.style.stroke = color;
+
+      ringGlow.style.setProperty("--pulse-duration", `${START_PULSE_DURATION}ms`);
+      ringGlow.style.setProperty("--pulse-opacity", START_PULSE_OPACITY);
+
+      ringGlow.setAttribute("filter", "url(#glow)");
+
+      ringGlow.classList.remove("pulse");
+
+      void ringGlow.getBBox(); // force SVG reflow (important!)
+      ringGlow.classList.add("pulse");
+    }
+
     /* ================= LOGIC ================= */
 
-    function parseTime(t) {
-      const [m, s] = t.split(":").map(Number);
-      return m * 60 + s;
-    }
-
-    function stopAll() {
-      clearInterval(timerInterval);
-      cancelAnimationFrame(animationFrame);
-    }
-
     function prepareSteep(i) {
-      stopAll();
+      cancelAnimationFrame(animFrame);
+      state = "ready";
       currentSteep = i;
+
       const tea = TEAS[currentTea];
+      totalSeconds = parseTime(tea.times[i]);
+      renderTime(totalSeconds);
 
-      totalSeconds = remainingSeconds = parseTime(tea.times[i]);
       temperatureEl.textContent = tea.temperatures[i] + " °C";
-      renderTimer(remainingSeconds);
-
-      ringBase.setAttribute("stroke", tea.color);
+      ringBase.style.stroke = tea.color;
+      ringGlow.style.stroke = tea.color;
       setProgress(0);
 
-      updateSteepDropdown();
-      state = "ready";
+      updateSteepMenu();
     }
 
     function startSteep() {
       if (state !== "ready") return;
       state = "running";
-      startTimestamp = performance.now();
 
-      function animate(now) {
-        const f = Math.min((now - startTimestamp) / 1000 / totalSeconds, 1);
-        setProgress(f);
-        if (f < 1) animationFrame = requestAnimationFrame(animate);
+      renderTime(totalSeconds);
+
+      startPulse(TEAS[currentTea].color);
+      startTime = performance.now();
+
+      function tick(now) {
+        const elapsed = (now - startTime) / 1000;
+        const remaining = totalSeconds - elapsed;
+        const frac = Math.min(elapsed / totalSeconds, 1);
+
+        renderTime(remaining);
+        setProgress(frac);
+
+        if (remaining <= 0) {
+          finishSteep();
+        } else {
+          animFrame = requestAnimationFrame(tick);
+        }
       }
-      animationFrame = requestAnimationFrame(animate);
-
-      timerInterval = setInterval(() => {
-        remainingSeconds--;
-        renderTimer(Math.max(remainingSeconds, 0));
-        if (remainingSeconds <= 0) finishSteep();
-      }, 1000);
+      animFrame = requestAnimationFrame(tick);
     }
 
     function finishSteep() {
-      stopAll();
+      cancelAnimationFrame(animFrame);
       setProgress(1);
-      if (currentSteep < totalSteeps - 1)
+
+      if (currentSteep < totalSteeps - 1) {
         setTimeout(() => prepareSteep(currentSteep + 1), 400);
+      }
     }
 
-    function updateSteepDropdown() {
+    /* ================= UI ================= */
+
+    function updateSteepMenu() {
       steepSelect.innerHTML = "";
-      TEAS[currentTea].times.forEach((t, i) => {
+      const tea = TEAS[currentTea];
+      tea.times.forEach((t, i) => {
         const o = document.createElement("option");
         o.value = i;
-        o.textContent = `${i + 1} of ${totalSteeps} (${t})`;
+        o.textContent = `${i + 1} of ${totalSteeps}`;
         steepSelect.appendChild(o);
       });
       steepSelect.value = currentSteep;
     }
 
+    const parseTime = t => {
+      const [m, s] = t.split(":").map(Number);
+      return m * 60 + s;
+    };
+
     /* ================= EVENTS ================= */
 
     document.getElementById("center").addEventListener("click", startSteep);
-
     teaSelect.addEventListener("change", () => {
       currentTea = teaSelect.value;
       totalSteeps = TEAS[currentTea].times.length;
       prepareSteep(0);
     });
-
     steepSelect.addEventListener("change", () =>
       prepareSteep(+steepSelect.value)
     );
@@ -341,4 +407,5 @@
   </script>
 
 </body>
+
 </html>
