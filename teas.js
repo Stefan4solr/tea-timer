@@ -9,6 +9,11 @@ export const TEAS = {
     temperatures: [75, 75, 75],
     times: ["01:00", "00:01", "00:45"]
   },
+  "Matcha": {
+     color: "#94d777",
+     temperatures: [65],
+     times: ["00:00"]
+  },
   "Pu-err Tea": {
     color: "#b9a963",
     temperatures: Array(12).fill(99),
