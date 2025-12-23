@@ -1,4 +1,4 @@
-<img src="gaiwan-180.png" alt="gaiwan image" width="400"/>
+<img src="IMG_1680.jpeg" alt="running app" width="650"/>
 
 # tea-timer
 
