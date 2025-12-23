@@ -1,3 +1,5 @@
+<img src="gaiwan-180.png" alt="gaiwan image" width="400"/>
+
 # tea-timer
 
 A minimalistic tea brewing app for gong-fu style tea brewing sessions.
