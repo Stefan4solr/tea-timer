@@ -369,7 +369,7 @@
       tea.times.forEach((t, i) => {
         const o = document.createElement("option");
         o.value = i;
-        o.textContent = `${i + 1} of ${totalSteeps}`;
+        o.textContent = `${i + 1} of ${totalSteeps} (${tea.times[i]})`;
         steepSelect.appendChild(o);
       });
       steepSelect.value = currentSteep;
