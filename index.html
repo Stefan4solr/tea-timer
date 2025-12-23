@@ -171,8 +171,35 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
     /* ================= CONFIG ================= */
+
+    // Tea data - will be loaded from external module or use fallback
+    let TEAS = {};
+
+    // Try to load tea data from external module, fallback to inline if it fails
+    async function loadTeas() {
+      try {
+        const module = await import('./teas.js');
+        TEAS = module.TEAS;
+      } catch (error) {
+        console.warn('Could not load teas.js (probably running from file://), using fallback data');
+        // Fallback tea data for file:// usage
+        TEAS = {
+          "Fallback 1": {
+            color: "#d1e576",
+            temperatures: [75, 75, 75],
+            times: ["01:00", "00:01", "00:45"]
+          },
+          "Fallback 2": {
+            color: "#f8e367",
+            temperatures: Array(10).fill(75),
+            times: Array(10).fill("00:15")
+          }
+        };
+      }
+    }
+
 
     const RING_SCALE = 0.75;
     const TIMER_FONT_SCALE = 0.20;
@@ -184,31 +211,6 @@
     const GLOW_BLUR = 6;
     const GLOW_PADDING_MULT = 3;
 
-    /* ================= Tea definitions - you can add/remove tea types here =================
-        - color is the foreground color of the progress indicator
-        - lists of steeping temperatures and times need to have the same length
-    */
-    const TEAS = {
-      "Sencha": {
-        color: "#d1e576",
-        temperatures: [75, 75, 75],
-        times: ["01:00", "00:01", "00:45"]
-      },
-      "Pu-err Tea": {
-        color: "#b9a963",
-        temperatures: Array(12).fill(99),
-        times: [
-          "00:25", "00:30", "00:35", "00:40", "00:45",
-          "00:50", "00:55", "01:00", "01:05", "01:10",
-          "01:15", "01:20"
-        ]
-      },
-      "White Tea": {
-        color: "#f8e367",
-        temperatures: [75, 75, 75, 75, 75, 75, 75, 75, 75, 75],
-        times: ["00:15", "00:15", "00:15", "00:15", "00:15", "00:15", "00:15", "00:15", "00:15", "00:15"]
-      }
-    };
 
     /* ================= STATE ================= */
 
@@ -394,16 +396,23 @@
 
     /* ================= INIT ================= */
 
-    Object.keys(TEAS).forEach(t => {
-      const o = document.createElement("option");
-      o.value = o.textContent = t;
-      teaSelect.appendChild(o);
-    });
+    async function initializeApp() {
+      await loadTeas();
+      
+      Object.keys(TEAS).forEach(t => {
+        const o = document.createElement("option");
+        o.value = o.textContent = t;
+        teaSelect.appendChild(o);
+      });
 
-    buildRing();
-    currentTea = teaSelect.value = Object.keys(TEAS)[0];
-    totalSteeps = TEAS[currentTea].times.length;
-    prepareSteep(0);
+      buildRing();
+      currentTea = teaSelect.value = Object.keys(TEAS)[0];
+      totalSteeps = TEAS[currentTea].times.length;
+      prepareSteep(0);
+    }
+
+    // Initialize the app
+    initializeApp();
   </script>
 
 </body>
