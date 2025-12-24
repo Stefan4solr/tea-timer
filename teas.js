@@ -26,6 +26,6 @@ export const TEAS = {
   "White Tea": {
     color: "#f8e367",
     temperatures: Array(10).fill(75),
-    times: Array(10).fill("00:15")
+    times: Array(10).fill("00:45")
   }
 };
