@@ -212,26 +212,26 @@
     const GLOW_PADDING_MULT = 3;
 
 
-	/* ================= Gong effect ========= */
-	const GONG_VOLUME = 0.4;   // configurable
-	const GONG_ENABLED = true;
+    /* ================= Gong effect ========= */
+    const GONG_VOLUME = 0.4;   // configurable
+    const GONG_ENABLED = true;
 
-	const gong = new Audio("gong.m4a");
-	gong.preload = "auto";
-	gong.volume = GONG_VOLUME;
+    const gong = new Audio("gong.m4a");
+    gong.preload = "auto";
+    gong.volume = GONG_VOLUME;
 
-	let audioUnlocked = false;
+    let audioUnlocked = false;
 
-	function unlockAudio() {
-	  if (audioUnlocked) return;
+    function unlockAudio() {
+      if (audioUnlocked) return;
 
-	  const silent = new Audio();
-	  silent.src =
-		"data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA...";
-	  silent.play().then(() => {
-		audioUnlocked = true;
-	  }).catch(() => {});
-	}
+      const silent = new Audio();
+      silent.src =
+        "data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA...";
+      silent.play().then(() => {
+        audioUnlocked = true;
+      }).catch(() => {});
+    }
     /* ================= STATE ================= */
 
     let currentTea, currentSteep, totalSteeps;
