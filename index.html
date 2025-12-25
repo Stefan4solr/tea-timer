@@ -212,6 +212,26 @@
     const GLOW_PADDING_MULT = 3;
 
 
+	/* ================= Gong effect ========= */
+	const GONG_VOLUME = 0.4;   // configurable
+	const GONG_ENABLED = true;
+
+	const gong = new Audio("gong.m4a");
+	gong.preload = "auto";
+	gong.volume = GONG_VOLUME;
+
+	let audioUnlocked = false;
+
+	function unlockAudio() {
+	  if (audioUnlocked) return;
+
+	  const silent = new Audio();
+	  silent.src =
+		"data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA...";
+	  silent.play().then(() => {
+		audioUnlocked = true;
+	  }).catch(() => {});
+	}
     /* ================= STATE ================= */
 
     let currentTea, currentSteep, totalSteeps;
@@ -322,13 +342,22 @@
       ringBase.style.stroke = tea.color;
       ringGlow.style.stroke = tea.color;
       setProgress(0);
-
+	  
       updateSteepMenu();
     }
 
     function startSteep() {
       if (state !== "ready") return;
       state = "running";
+
+	  unlockAudio();
+
+      if (GONG_ENABLED) {
+        gong.currentTime = 0;
+        gong.play().catch(() => {
+          /* autoplay rejected — safe to ignore */
+        });
+      }
 
       renderTime(totalSeconds);
 
@@ -382,7 +411,8 @@
 
     /* ================= EVENTS ================= */
 
-    document.getElementById("center").addEventListener("click", startSteep);
+	document.getElementById("center").addEventListener("pointerdown", startSteep);
+	document.getElementById("center").addEventListener("pointerdown", () => { unlockAudio(); }, { once: true });
     teaSelect.addEventListener("change", () => {
       currentTea = teaSelect.value;
       totalSteeps = TEAS[currentTea].times.length;
@@ -398,7 +428,7 @@
 
     async function initializeApp() {
       await loadTeas();
-      
+
       Object.keys(TEAS).forEach(t => {
         const o = document.createElement("option");
         o.value = o.textContent = t;
