@@ -6,8 +6,8 @@
 export const TEAS = {
   "Sencha": {
     color: "#d1e576",
-    temperatures: [75, 75, 75],
-    times: ["01:00", "00:01", "00:45"]
+    temperatures: [75, 75, 75, 75],
+    times: ["01:00", "00:01", "00:45", "01:30"]
   },
   "Matcha": {
      color: "#94d777",
